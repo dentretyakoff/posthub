@@ -1,6 +1,7 @@
 from http import HTTPStatus
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -46,6 +47,7 @@ class PostURLTests(TestCase):
         cls.POST_DETAIL_URL = reverse('posts:post_detail', args=[cls.post.id])
         cls.POST_CREATE_URL = reverse('posts:post_create')
         cls.POST_EDIT_URL = reverse('posts:post_edit', args=[cls.post.id])
+        cls.FOLLOW_INDEX_URL = reverse('posts:follow_index')
         cls.UNEXISTING_PAGE = '/unexisting_page/'
 
         cls.INDEX_TEMPL = 'posts/index.html'
@@ -54,6 +56,10 @@ class PostURLTests(TestCase):
         cls.POST_DETAIL_TEMPL = 'posts/post_detail.html'
         cls.POST_CREATE_TEMPL = 'posts/create_post.html'
         cls.POST_EDIT_TEMPL = 'posts/create_post.html'
+        cls.FOLLOW_INDEX_TEMPL = 'posts/follow.html'
+
+    def setUp(self):
+        cache.clear()
 
     # Проверяем используемые шаблоны
     def test_posts_pages_uses_correct_template(self):
@@ -65,6 +71,7 @@ class PostURLTests(TestCase):
             self.POST_DETAIL_URL: self.POST_DETAIL_TEMPL,
             self.POST_CREATE_URL: self.POST_CREATE_TEMPL,
             self.POST_EDIT_URL: self.POST_EDIT_TEMPL,
+            self.FOLLOW_INDEX_URL: self.FOLLOW_INDEX_TEMPL,
         }
         for reverse_name, template in templates_pages_names.items():
             with self.subTest(reverse_name=reverse_name):
@@ -95,6 +102,7 @@ class PostURLTests(TestCase):
         url_names = [
             self.POST_CREATE_URL,
             self.POST_EDIT_URL,
+            self.FOLLOW_INDEX_URL,
         ]
         # Авторизованный клиент получит код 200
         for address in url_names:
