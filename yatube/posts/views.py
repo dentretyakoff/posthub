@@ -1,16 +1,14 @@
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import cache_page
 
+# isort: off
+from core.utils import get_pages
+# isort: on
 from .forms import CommentForm, PostForm
 from .models import Follow, Group, Post
-
-# Колчичество постов на страницу
-COUNT_PAGES = settings.COUNT_PAGES_PAGINATOR
 
 User = get_user_model()
 
@@ -54,12 +52,11 @@ def profile(request, username):
     author = get_object_or_404(User, username=username)
     posts = author.posts.select_related('group').all()
     page_obj = get_pages(request, posts)
-    following = False
-
-    if request.user.is_authenticated:
-        following = Follow.objects.filter(
-            author=author, user=request.user
-        ).exists()
+    following = (request.user.is_authenticated
+                 and
+                 Follow.objects.filter(
+                    author=author,
+                    user=request.user).exists())
 
     context = {
         'author': author,
@@ -76,7 +73,7 @@ def post_detail(request, post_id):
     возвращаем текст посата и общее количество постов автора.
     """
     post = get_object_or_404(Post, pk=post_id)
-    comments = post.comments.filter(post_id=post_id)
+    comments = post.comments.all()
     count_posts = post.author.posts.all().count()
     form = CommentForm()
     context = {
@@ -86,15 +83,6 @@ def post_detail(request, post_id):
         'form': form,
     }
     return render(request, 'posts/post_detail.html', context)
-
-
-# Паджинация
-def get_pages(request, posts):
-    paginator = Paginator(posts, COUNT_PAGES)
-    page_number = request.GET.get('page')
-
-    # Возвращаем набор записей для страницы с запрошенным номером
-    return paginator.get_page(page_number)
 
 
 # Создание поста
@@ -216,10 +204,9 @@ def profile_follow(request, username):
 def profile_unfollow(request, username):
     """Отписка от автора."""
     author = get_object_or_404(User, username=username)
-    follower = request.user
 
     Follow.objects.filter(
-        author=author, user=follower
+        author=author, user=request.user
     ).delete()
     return redirect(
         reverse('posts:profile',
