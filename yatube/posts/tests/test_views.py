@@ -30,17 +30,6 @@ class PostPagesTests(TestCase):
         cls.authorized_client = Client()
         cls.authorized_client.force_login(cls.user)
 
-        # Подписчик
-        cls.follower = User.objects.create_user(username='follower')
-        cls.auth_follower = Client()
-        cls.auth_follower.force_login(cls.follower)
-
-        # Неподписчик
-        cls.unfollower = User.objects.create_user(username='unfollower')
-        cls.auth_unfollower = Client()
-        cls.auth_unfollower.force_login(cls.unfollower)
-        cls.COUNT_POSTS_UNFOLLOWER = 0
-
         # Создаем группу и посты
         cls.group = Group.objects.create(
             title='Тестовая группа-1',
@@ -78,11 +67,6 @@ class PostPagesTests(TestCase):
         cls.POST_DETAIL_URL = reverse('posts:post_detail', args=[cls.post.id])
         cls.POST_CREATE_URL = reverse('posts:post_create')
         cls.POST_EDIT_URL = reverse('posts:post_edit', args=[cls.post.id])
-        cls.PROFILE_FOLLOW_URL = reverse('posts:profile_follow',
-                                         args=[cls.user])
-        cls.PROFILE_UNFOLLOW_URL = reverse('posts:profile_unfollow',
-                                           args=[cls.user])
-        cls.FOLLOW_INDEX_URL = reverse('posts:follow_index')
 
     def setUp(self):
         cache.clear()
@@ -108,16 +92,25 @@ class PostPagesTests(TestCase):
             group=self.group,
             image=self.uploaded,
         )
-        # Сверяем контент перед удалением поста
-        content_1 = self.get_first_post(self.INDEX_URL)
-        self.validate_content(content_1, new_post)
+        # Формируем кеш
+        response = self.guest_client.get(self.INDEX_URL)
+        post = response.context['page_obj'][0]
+        content_1 = response.content
+        # Содержимое полей соответствует ожиданиям
+        self.validate_content(post, new_post)
+
         # Удаляем пост
         Post.objects.first().delete()
-        # Сверяем контент после удаления поста
-        content_2 = self.get_first_post(self.INDEX_URL)
-        self.validate_content(content_2, new_post)
-        # content_2 = Client().get(self.INDEX_URL).content
-        # self.assertEqual(content_1, content_2)
+        # После удаления поста контент одинаковый
+        response = self.guest_client.get(self.INDEX_URL)
+        content_2 = response.content
+        self.assertEqual(content_1, content_2)
+
+        # Очищаем кеш, контент разный
+        cache.clear()
+        response = self.guest_client.get(self.INDEX_URL)
+        content_2 = response.content
+        self.assertNotEqual(content_1, content_2)
 
     def test_posts_group_page_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
@@ -152,15 +145,7 @@ class PostPagesTests(TestCase):
         self.validate_content(post, self.post)
         self.assertEqual(count_posts, self.COUNT_POSTS)
 
-    def get_first_post(self, url_page: str) -> Post:
-        """Получить первый пост со страницы."""
-        response = self.guest_client.get(url_page)
-        return response.context['page_obj'][0]  # .paginator.object_list.first()
-
-    def validate_content(self,
-                         post: Post,
-                         post_expected: Post
-                         ) -> None:
+    def validate_content(self, post: Post, post_expected: Post) -> None:
         """Содержимое полей поста соответствует ожиданиям."""
         post_content = {
             post.text: post_expected.text,
@@ -246,43 +231,6 @@ class PostPagesTests(TestCase):
         self.assertEqual(count_posts_group_1, self.COUNT_POSTS)
         self.assertEqual(count_posts_group_2, 0)
 
-    def test_posts_auth_user_correct_follow_unfollow(self):
-        """Авторизованный пользователь может подписаться/отписаться."""
-        self.auth_follower.get(self.PROFILE_FOLLOW_URL)
-        exists_sub = Follow.objects.filter(
-            author=self.user, user=self.follower
-        ).exists()
-        # Подписка существует
-        self.assertTrue(exists_sub)
-
-        self.auth_follower.get(self.PROFILE_UNFOLLOW_URL)
-        exists_sub = Follow.objects.filter(
-            author=self.user, user=self.follower
-        ).exists()
-        # Подписка удалилась
-        self.assertFalse(exists_sub)
-
-    def test_posts_new_post_appears_correctly_in_favorites(self):
-        """Новая запись пользователя появляется в ленте тех, кто на него
-        подписан и не появляется в ленте тех, кто не подписан."""
-        # Подписываеся на автора
-        self.auth_follower.get(self.PROFILE_FOLLOW_URL)
-        # Автор создает новыый пост
-        new_post = Post.objects.create(
-            text='Тестовый пост для Избранного',
-            author=self.user,
-            group=self.group,
-        )
-        # Проверяем ленту подписчика
-        response_1 = self.auth_follower.get(self.FOLLOW_INDEX_URL)
-        posts_follower = response_1.context['page_obj'][0]
-        self.assertEqual(posts_follower, new_post)
-
-        # Проверяем ленту неподписчика
-        response_2 = self.auth_unfollower.get(self.FOLLOW_INDEX_URL)
-        posts_unfollower = response_2.context['page_obj']
-        self.assertEqual(len(posts_unfollower), self.COUNT_POSTS_UNFOLLOWER)
-
 
 class PostPaginatorTest(TestCase):
     @classmethod
@@ -328,3 +276,98 @@ class PostPaginatorTest(TestCase):
             self.assertEqual(len(pages), COUNT_PAGES)
             # Количество постов на последней странице
             self.assertEqual(len(last_page), self.COUNT_POSTS % COUNT_PAGES)
+
+
+class PostFollowTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Создаем пользователей и клиенты
+        cls.user = User.objects.create_user(username='StasBasov')
+        cls.guest_client = Client()
+        cls.authorized_client = Client()
+        cls.authorized_client.force_login(cls.user)
+
+        # Подписчик
+        cls.follower = User.objects.create_user(username='follower')
+        cls.auth_follower = Client()
+        cls.auth_follower.force_login(cls.follower)
+
+        # Неподписчик
+        cls.unfollower = User.objects.create_user(username='unfollower')
+        cls.auth_unfollower = Client()
+        cls.auth_unfollower.force_login(cls.unfollower)
+
+        # Количество подписок в БД = 0
+        cls.COUNT_SUBS = Follow.objects.count()
+
+        # Константы URL-адресов
+        cls.PROFILE_FOLLOW_URL = reverse('posts:profile_follow',
+                                         args=[cls.user])
+        cls.PROFILE_UNFOLLOW_URL = reverse('posts:profile_unfollow',
+                                           args=[cls.user])
+        cls.FOLLOW_INDEX_URL = reverse('posts:follow_index')
+
+    def test_posts_auth_user_correct_follow(self):
+        """Авторизованный пользователь может подписаться."""
+        self.auth_follower.get(self.PROFILE_FOLLOW_URL)
+        exists_sub = Follow.objects.first()
+        # Подписка соответсвует ожиданиям
+        self.assertEqual(exists_sub.author, self.user)
+        self.assertEqual(exists_sub.user, self.follower)
+
+    def test_posts_auth_user_correct_unfollow(self):
+        """Авторизованный пользователь может отписаться."""
+        Follow.objects.create(
+            author=self.user,
+            user=self.follower,
+        )
+        self.auth_follower.get(self.PROFILE_UNFOLLOW_URL)
+        count_subs = Follow.objects.all().count()
+        # Подписка удалилась
+        self.assertEqual(count_subs, self.COUNT_SUBS,
+                         'Количество подписок больше 0, '
+                         'проверьте вью-функцию profile_unfollow')
+
+    def test_posts_new_post_appears_correctly_in_favorites(self):
+        """Новая запись пользователя появляется в ленте тех,
+        кто на него подписан."""
+        # Подписываемся на автора
+        Follow.objects.create(
+            author=self.user,
+            user=self.follower
+        )
+        # Автор создает новыый пост
+        new_post = Post.objects.create(
+            text='Тестовый пост для Избранного',
+            author=self.user,
+        )
+        # Проверяем ленту подписчика
+        response = self.auth_follower.get(self.FOLLOW_INDEX_URL)
+        self.assertEqual(len(response.context['page_obj']),
+                         self.COUNT_SUBS + 1,
+                         'В избранном подписчика не появился новый пост.')
+
+        post = response.context['page_obj'][0]
+        self.assertEqual(post.text, new_post.text)
+        self.assertEqual(post.author, new_post.author)
+
+    def test_posts_new_post_not_appears_in_favorites(self):
+        """Новая запись пользователя не появляется в ленте тех,
+        кто на него не подписан."""
+        # Подписываемся на автора
+        Follow.objects.create(
+            author=self.user,
+            user=self.follower
+        )
+        # Автор создает новыый пост
+        Post.objects.create(
+            text='Тестовый пост для Избранного',
+            author=self.user,
+        )
+        # Проверяем ленту неподписчика
+        response = self.auth_unfollower.get(self.FOLLOW_INDEX_URL)
+        self.assertEqual(len(response.context['page_obj']),
+                         self.COUNT_SUBS,
+                         'Колчичество постов в избранном неподписчика '
+                         'больше 0, проверьте вью-функцию profile_unfollow.')

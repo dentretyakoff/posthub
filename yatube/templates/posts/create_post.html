@@ -9,6 +9,7 @@
   {% endif %}
 {% endblock %}
 {% block content %}
+  {% load user_filters %}
   <div class="container py-5">
     <div class="row justify-content-center">
       <div class="col-md-8 p-5">
@@ -21,21 +22,7 @@
               {% endif %}
           </div>
           <div class="card-body">
-            {% load user_filters %}
-            {% if form.errors %}
-              {% for field in form %} 
-                {% for error in field.errors %}            
-                  <div class="alert alert-danger">
-                    {{ error|escape }}
-                  </div>
-                {% endfor %}
-              {% endfor %}
-              {% for error in form.non_field_errors %}
-                <div class="alert alert-danger">
-                  {{ error|escape }}
-                </div>
-              {% endfor %}
-            {% endif %}
+            {% include 'core/errors.html' %}
             <form method="post" enctype="multipart/form-data"
               {% if is_edit %}
                 action="{% url 'posts:post_edit' post_id %}"
