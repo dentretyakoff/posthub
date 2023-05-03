@@ -98,21 +98,26 @@ class PostPagesTests(TestCase):
             self.INDEX_URL
         )
         post = response.context['page_obj'][0]
-        self.validate_content(post)
+        self.validate_content(post, self.post)
 
     def test_posts_cache_index_page(self):
         """Кеш главной страницы работает корректно."""
-        Post.objects.create(
-            text='Тест кеша главной страницы',
+        new_post = Post.objects.create(
+            text='Пост для проверки кеша главной страницы.',
             author=self.user,
             group=self.group,
+            image=self.uploaded,
         )
-        # Создаем кеш
-        content_1 = Client().get(self.INDEX_URL).content
+        # Сверяем контент перед удалением поста
+        content_1 = self.get_first_post(self.INDEX_URL)
+        self.validate_content(content_1, new_post)
         # Удаляем пост
         Post.objects.first().delete()
-        content_2 = Client().get(self.INDEX_URL).content
-        self.assertEqual(content_1, content_2)
+        # Сверяем контент после удаления поста
+        content_2 = self.get_first_post(self.INDEX_URL)
+        self.validate_content(content_2, new_post)
+        # content_2 = Client().get(self.INDEX_URL).content
+        # self.assertEqual(content_1, content_2)
 
     def test_posts_group_page_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
@@ -122,7 +127,7 @@ class PostPagesTests(TestCase):
         post = response.context['page_obj'][0]
         group_name = response.context['group']
 
-        self.validate_content(post)
+        self.validate_content(post, self.post)
         self.assertEqual(group_name, self.group)
 
     def test_posts_profile_page_show_correct_context(self):
@@ -133,7 +138,7 @@ class PostPagesTests(TestCase):
         post = response.context['page_obj'][0]
         user_name = response.context['author']
 
-        self.validate_content(post)
+        self.validate_content(post, self.post)
         self.assertEqual(user_name, self.user)
 
     def test_posts_post_detail_page_show_correct_context(self):
@@ -144,16 +149,24 @@ class PostPagesTests(TestCase):
         post = response.context['post']
         count_posts = response.context['count_posts']
 
-        self.validate_content(post)
+        self.validate_content(post, self.post)
         self.assertEqual(count_posts, self.COUNT_POSTS)
 
-    def validate_content(self, post: Post) -> None:
-        """Содержимое полученных страниц соответствует ожиданиям."""
+    def get_first_post(self, url_page: str) -> Post:
+        """Получить первый пост со страницы."""
+        response = self.guest_client.get(url_page)
+        return response.context['page_obj'][0]  # .paginator.object_list.first()
+
+    def validate_content(self,
+                         post: Post,
+                         post_expected: Post
+                         ) -> None:
+        """Содержимое полей поста соответствует ожиданиям."""
         post_content = {
-            post.text: self.post.text,
-            post.author: self.user,
-            post.group: self.group,
-            post.image: self.post.image,
+            post.text: post_expected.text,
+            post.author: post_expected.author,
+            post.group: post_expected.group,
+            post.image: post_expected.image,
         }
         for value, expected in post_content.items():
             with self.subTest(value=value):

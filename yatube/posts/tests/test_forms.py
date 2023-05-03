@@ -180,6 +180,12 @@ class CommentFormTests(TestCase):
             text='Пост для теста комментария',
             author=cls.user_1,
         )
+        # Создаем комментарий
+        cls.comment = Comment(
+            text=f'Тестовый комментарий к посту {cls.post.id}',
+            post=cls.post,
+            author=cls.user_1,
+        )
         # Константы urls-адресов
         cls.COMMENT_CREATE_URL = reverse(
             'posts:add_comment',
@@ -192,6 +198,7 @@ class CommentFormTests(TestCase):
         Создание комментария - анонимного пользователя
         перенаправит на авторизацию.
         """
+        count_comments = Comment.objects.all().count()
         form_data = {
             'text': f'Тестовый комментарий к посту {self.post.id}',
         }
@@ -204,18 +211,25 @@ class CommentFormTests(TestCase):
         self.assertRedirects(
             response,
             f'{self.AUTH_URL}?next={self.COMMENT_CREATE_URL}')
+        # Количесвто постов не изменилось
+        self.assertEqual(Comment.objects.all().count(), count_comments)
 
     def test_posts_create_comment_form_correct(self):
         """Валидная форма создает комментарий."""
-        form_data = {
-            'text': f'Тестовый комментарий к посту {self.post.id}',
-        }
         # Создаем комментарий
         response = self.auth_client_1.post(
             self.COMMENT_CREATE_URL,
-            data=form_data,
+            data={'text': self.comment.text},
             follow=True
         )
-        comment = Comment.objects.filter(post_id=self.post.id)
+        new_comment = response.context.get('comments')[0]
+        comment_content = {
+            new_comment.text: self.comment.text,
+            new_comment.post: self.comment.post,
+            new_comment.author: self.comment.author,
+
+        }
         # Комментарий есть на стринцие поста и соответсвует ожиданиям
-        self.assertEqual(response.context.get('comments')[0], comment[0])
+        for value, expected in comment_content.items():
+            with self.subTest(value=value):
+                self.assertEqual(value, expected)

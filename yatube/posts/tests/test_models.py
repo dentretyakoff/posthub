@@ -27,11 +27,9 @@ class PostModelTest(TestCase):
 
     def test_models_have_correct_object_names(self):
         """Проверяем, что у моделей корректно работает __str__."""
-        group = self.group
-        post = self.post
         str_expected = {
-            group: group.title,
-            post: post.text[:COUNT_SYMBOLS],
+            self.group: self.group.title,
+            self.post: self.post.text[:COUNT_SYMBOLS],
         }
         for model_str, expected_value in str_expected.items():
             with self.subTest(model_str=model_str):
@@ -39,7 +37,6 @@ class PostModelTest(TestCase):
 
     def test_verbose_name(self):
         """verbose_name в полях совпадает с ожидаемым."""
-        post = self.post
         field_verboses = {
             'text': 'Текст поста',
             'created': 'Дата создания',
@@ -49,11 +46,12 @@ class PostModelTest(TestCase):
         for field, expected_value in field_verboses.items():
             with self.subTest(field=field):
                 self.assertEqual(
-                    post._meta.get_field(field).verbose_name, expected_value)
+                    self.post._meta.get_field(field).verbose_name,
+                    expected_value
+                )
 
     def test_help_text(self):
         """help_text в полях совпадает с ожидаемым."""
-        post = self.post
         field_help_texts = {
             'text': 'Введите текст поста',
             'group': 'Группа, к которой будет относиться пост'
@@ -61,4 +59,4 @@ class PostModelTest(TestCase):
         for field, expected_value in field_help_texts.items():
             with self.subTest(field=field):
                 self.assertEqual(
-                    post._meta.get_field(field).help_text, expected_value)
+                    self.post._meta.get_field(field).help_text, expected_value)

@@ -168,12 +168,8 @@ def add_comment(request, post_id):
 def follow_index(request):
     """Выводит список постов авторов, на которых подписан пользователь."""
     user = get_object_or_404(User, username=request.user)
-    # Все подписки пользователя
-    subscriptions = Follow.objects.filter(user=user)
-    # ID авторов полученных подписок
-    authors = [a_id.author.id for a_id in subscriptions]
     # Все посты авторов
-    posts = Post.objects.filter(author_id__in=authors)
+    posts = Post.objects.filter(author__following__user=user)
     page_obj = get_pages(request, posts)
     context = {
         'page_obj': page_obj,
@@ -187,13 +183,10 @@ def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
     follower = request.user
 
-    follow_exist = Follow.objects.filter(
-        author=author, user=follower
-    ).exists()
-
-    if not follow_exist and author != follower:
-        new_follow = Follow(author=author, user=follower)
-        new_follow.save()
+    if author != follower:
+        Follow.objects.get_or_create(
+            author=author, user=follower
+        )
     return redirect(
         reverse('posts:profile',
                 args=[author.username])
