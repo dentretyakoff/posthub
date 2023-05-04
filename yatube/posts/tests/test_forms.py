@@ -216,6 +216,8 @@ class CommentFormTests(TestCase):
 
     def test_posts_create_comment_form_correct(self):
         """Валидная форма создает комментарий."""
+        # Получаем количество комментариев
+        count_comments = Comment.objects.filter(post=self.post).count()
         # Создаем комментарий
         response = self.auth_client_1.post(
             self.COMMENT_CREATE_URL,
@@ -229,6 +231,9 @@ class CommentFormTests(TestCase):
             new_comment.author: self.comment.author,
 
         }
+        # Количество комментариев поста увеличилось на 1
+        self.assertEqual(Comment.objects.filter(post=self.post).count(),
+                         count_comments + 1)
         # Комментарий есть на стринцие поста и соответсвует ожиданиям
         for value, expected in comment_content.items():
             with self.subTest(value=value):

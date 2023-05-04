@@ -47,8 +47,13 @@ class PostURLTests(TestCase):
         cls.POST_DETAIL_URL = reverse('posts:post_detail', args=[cls.post.id])
         cls.POST_CREATE_URL = reverse('posts:post_create')
         cls.POST_EDIT_URL = reverse('posts:post_edit', args=[cls.post.id])
-        cls.FOLLOW_INDEX_URL = reverse('posts:follow_index')
         cls.UNEXISTING_PAGE = '/unexisting_page/'
+        cls.AUTH_URL = reverse('users:login')
+        cls.FOLLOW_INDEX_URL = reverse('posts:follow_index')
+        cls.PROFILE_FOLLOW_URL = reverse('posts:profile_follow',
+                                         args=[cls.user])
+        cls.PROFILE_UNFOLLOW_URL = reverse('posts:profile_unfollow',
+                                           args=[cls.user])
 
         cls.INDEX_TEMPL = 'posts/index.html'
         cls.GROUP_TEMPL = 'posts/group_list.html'
@@ -103,15 +108,19 @@ class PostURLTests(TestCase):
             self.POST_CREATE_URL,
             self.POST_EDIT_URL,
             self.FOLLOW_INDEX_URL,
+            self.PROFILE_FOLLOW_URL,
+            self.PROFILE_UNFOLLOW_URL,
         ]
         # Авторизованный клиент получит код 200
         for address in url_names:
             with self.subTest(address=address):
-                response = self.authorized_client.get(address)
+                response = self.authorized_client.get(address, follow=True)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
-        # Неавторизованный клиент переадресует на SignUp
+        # Неавторизованный клиент переадресует на авторизацию
         for address in url_names:
             with self.subTest(address=address):
                 response = self.guest_client.get(address)
                 self.assertEqual(response.status_code, HTTPStatus.FOUND)
+                self.assertRedirects(response,
+                                     f'{self.AUTH_URL}?next={address}')

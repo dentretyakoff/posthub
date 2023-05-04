@@ -1,12 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.views.decorators.cache import cache_page
 
-# isort: off
 from core.utils import get_pages
-# isort: on
 from .forms import CommentForm, PostForm
 from .models import Follow, Group, Post
 
@@ -103,8 +100,7 @@ def post_create(request):
         new_post = form.save(commit=False)
         new_post.author = request.user
         new_post.save()
-        return redirect(reverse('posts:profile',
-                                args=[request.user.username]))
+        return redirect('posts:profile', username=request.user.username)
     context = {
         'form': form,
     }
@@ -130,7 +126,7 @@ def post_edit(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
     if post.author != request.user:
-        return redirect(reverse('posts:post_detail', args=[post_id]))
+        return redirect('posts:post_detail', post_id=post_id)
 
     form = PostForm(
         request.POST or None,
@@ -139,7 +135,7 @@ def post_edit(request, post_id):
     )
     if form.is_valid():
         form.save()
-        return redirect(reverse('posts:post_detail', args=[post_id]))
+        return redirect('posts:post_detail', post_id=post_id)
     context = {
         'form': form,
         'is_edit': True,
@@ -185,10 +181,7 @@ def profile_follow(request, username):
         Follow.objects.get_or_create(
             author=author, user=follower
         )
-    return redirect(
-        reverse('posts:profile',
-                args=[author.username])
-    )
+    return redirect('posts:profile', username=author.username)
 
 
 @login_required
@@ -199,7 +192,4 @@ def profile_unfollow(request, username):
     Follow.objects.filter(
         author=author, user=request.user
     ).delete()
-    return redirect(
-        reverse('posts:profile',
-                args=[author.username])
-    )
+    return redirect('posts:profile', username=author.username)

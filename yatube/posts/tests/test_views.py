@@ -298,10 +298,8 @@ class PostFollowTest(TestCase):
         cls.auth_unfollower = Client()
         cls.auth_unfollower.force_login(cls.unfollower)
 
-        # Количество подписок в БД = 0
-        cls.COUNT_SUBS = Follow.objects.count()
-
         # Константы URL-адресов
+        cls.PROFILE_URL = reverse('posts:profile', args=[cls.user])
         cls.PROFILE_FOLLOW_URL = reverse('posts:profile_follow',
                                          args=[cls.user])
         cls.PROFILE_UNFOLLOW_URL = reverse('posts:profile_unfollow',
@@ -310,28 +308,39 @@ class PostFollowTest(TestCase):
 
     def test_posts_auth_user_correct_follow(self):
         """Авторизованный пользователь может подписаться."""
+        # Количество подписок в БД
+        count_subs = Follow.objects.count()
+
         self.auth_follower.get(self.PROFILE_FOLLOW_URL)
         exists_sub = Follow.objects.first()
+
         # Подписка соответсвует ожиданиям
         self.assertEqual(exists_sub.author, self.user)
         self.assertEqual(exists_sub.user, self.follower)
 
+        # Количество подписок увеличилось на 1
+        self.assertEqual(Follow.objects.count(), count_subs + 1)
+
     def test_posts_auth_user_correct_unfollow(self):
         """Авторизованный пользователь может отписаться."""
+        # Количество подписок в БД
+        count_subs = Follow.objects.count()
         Follow.objects.create(
             author=self.user,
             user=self.follower,
         )
         self.auth_follower.get(self.PROFILE_UNFOLLOW_URL)
-        count_subs = Follow.objects.all().count()
         # Подписка удалилась
-        self.assertEqual(count_subs, self.COUNT_SUBS,
+        self.assertEqual(Follow.objects.all().count(),
+                         count_subs,
                          'Количество подписок больше 0, '
                          'проверьте вью-функцию profile_unfollow')
 
     def test_posts_new_post_appears_correctly_in_favorites(self):
         """Новая запись пользователя появляется в ленте тех,
         кто на него подписан."""
+        # Количество подписок в БД
+        count_subs = Follow.objects.count()
         # Подписываемся на автора
         Follow.objects.create(
             author=self.user,
@@ -345,7 +354,7 @@ class PostFollowTest(TestCase):
         # Проверяем ленту подписчика
         response = self.auth_follower.get(self.FOLLOW_INDEX_URL)
         self.assertEqual(len(response.context['page_obj']),
-                         self.COUNT_SUBS + 1,
+                         count_subs + 1,
                          'В избранном подписчика не появился новый пост.')
 
         post = response.context['page_obj'][0]
@@ -355,6 +364,8 @@ class PostFollowTest(TestCase):
     def test_posts_new_post_not_appears_in_favorites(self):
         """Новая запись пользователя не появляется в ленте тех,
         кто на него не подписан."""
+        # Количество подписок в БД
+        count_subs = Follow.objects.count()
         # Подписываемся на автора
         Follow.objects.create(
             author=self.user,
@@ -368,6 +379,6 @@ class PostFollowTest(TestCase):
         # Проверяем ленту неподписчика
         response = self.auth_unfollower.get(self.FOLLOW_INDEX_URL)
         self.assertEqual(len(response.context['page_obj']),
-                         self.COUNT_SUBS,
+                         count_subs,
                          'Колчичество постов в избранном неподписчика '
                          'больше 0, проверьте вью-функцию profile_unfollow.')
