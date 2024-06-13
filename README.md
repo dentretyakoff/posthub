@@ -87,7 +87,7 @@ python manage.py migrate
 Создайте суперпользователя: 
 
 ```
-python manage.py createsuperuser`
+python manage.py createsuperuser
 ```
 
 Запустите сервер:
