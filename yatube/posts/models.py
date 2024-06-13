@@ -3,9 +3,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.urls import reverse
 
-# isort: off
 from core.models import CreatedModel
-# isort: on
 
 # Количество символов при вызове метода __str__ модели Post
 COUNT_SYMBOLS = settings.COUNT_SYMBOLS_POST
